@@ -173,11 +173,13 @@ preset_scenario = st.sidebar.radio(
 )
 
 if preset_scenario == "Escenario A (Base 2Q26)":
+    st.sidebar.info("📌 **Escenario A (Conservador):** Reporte oficial Credicorp 2Q26. Cruce de equilibrio: **Mayo 2027**.")
     mau_proj_vals = [16.7, 17.5, 18.2]
     ing_proj_vals = [11.10, 13.50, 16.00]
     egr_proj_vals = [6.00, 6.20, 6.40]
     capex_proj_vals = [549162.20, 549162.20, 549162.20]
 elif preset_scenario == "Escenario B (Cierre 4Q26)":
+    st.sidebar.info("📌 **Escenario B (Acelerado):** Proyección ritmo 1H26 al cierre 4Q26. Cruce de equilibrio: **Enero 2027**.")
     mau_proj_vals = [17.5, 18.3, 19.0]
     ing_proj_vals = [12.60, 15.00, 17.50]
     egr_proj_vals = [6.10, 6.30, 6.50]
@@ -587,6 +589,15 @@ with tab1:
     )
     st.plotly_chart(fig_fcn, use_container_width=True)
 
+    st.markdown(f"""
+    <div class="callout-box">
+        <b>💡 Análisis e Interpretación Económica de la Gráfica:</b><br>
+        • <b>Barras Turquesas (Flujos Positivos):</b> Suman los Ingresos Directos de Yape (ARPU × usuarios) y los Ahorros Operativos para el BCP al sustituir ventanilla física por digital. Crecieron de <b>S/ {HIST_TOTAL_POSITIVOS[0]:,.0f}k</b> en 2021 a <b>S/ {HIST_TOTAL_POSITIVOS[4]:,.0f}k</b> en 2025.<br>
+        • <b>Barras Rojas (Flujos Negativos):</b> Suman el gasto operativo (OPEX) y la inversión en software (CAPEX asignado por la SMV). Alcanzaron su pico en 2025 con <b>S/ {HIST_TOTAL_NEGATIVOS[4]:,.0f}k</b>.<br>
+        • <b>Línea Azul (Flujo de Caja Neto - FCN):</b> Muestra la clásica <b>Curva en J</b>. Entre 2021 y 2023 el flujo anual es fuertemente negativo por la adquisición masiva de clientes. En <b>2024</b> se alcanza el <b>Punto de Equilibrio Operativo Anual (+S/ {HIST_FCN[3]:,.0f}k)</b>, expandiéndose en 2025 a <b>+S/ {HIST_FCN[4]:,.0f}k</b>.
+    </div>
+    """, unsafe_allow_html=True)
+
     # Tablas Auxiliares de Cálculo
     with st.expander("🔍 Ver Tablas Auxiliares de Modelamiento (Unit Economics, Ahorros SMV y CAPEX)"):
         col_t1, col_t2 = st.columns(2)
@@ -656,6 +667,7 @@ with tab2:
     mc_p5 = np.percentile(vpn_cut_sim, 5.0)
     mc_p95 = np.percentile(vpn_cut_sim, 95.0)
     mc_p_success = np.mean(vpn_cut_sim > 0) * 100.0
+    p_loss = np.mean(vpn_cut_sim <= 0) * 100.0
     
     # Tarjetas Métricas de Alto Contraste
     sm_c1, sm_c2, sm_c3, sm_c4, sm_c5, sm_c6 = st.columns(6)
@@ -778,6 +790,16 @@ with tab2:
         )
         st.plotly_chart(fig_hist, use_container_width=True)
 
+        st.markdown(f"""
+        <div class="callout-box" style="font-size:12px;">
+            <b>💡 ¿Qué representa este Histograma al Corte {cut_year}?</b><br>
+            • Muestra la distribución de los <b>{n_simulations:,} resultados posibles</b> de VPN acumulado hasta el año {cut_year}.<br>
+            • <b>Barras Rojas (VPN < 0):</b> El <b>{p_loss:.1f}%</b> de las iteraciones aún no cubre la inversión inicial.<br>
+            • <b>Barras Turquesas (VPN > 0):</b> El <b>{mc_p_success:.1f}%</b> de las iteraciones ya genera ganancia económica neta.<br>
+            • <b>Línea Azul Discontinua:</b> Ajuste de la Campana de Gauss con Media <b>E[VPN] = S/ {mc_mean:,.0f}k</b> y Desviación <b>σ = S/ {mc_std:,.0f}k</b>.
+        </div>
+        """, unsafe_allow_html=True)
+
     with col_g2:
         st.markdown(f"##### Curva S de Probabilidad Acumulada (Ojiva)")
         
@@ -820,6 +842,15 @@ with tab2:
         )
         st.plotly_chart(fig_s, use_container_width=True)
 
+        st.markdown(f"""
+        <div class="callout-box" style="font-size:12px;">
+            <b>💡 ¿Qué representa esta Curva S (Ojiva) al Corte {cut_year}?</b><br>
+            • Responde a la pregunta del inversionista: <i>¿Cuál es la probabilidad acumulada de que el VPN sea menor o igual a determinado monto?</i><br>
+            • <b>Punto Rojo (Umbral en VPN = 0):</b> Indica que existe exactamente un <b>{p_loss:.1f}% de probabilidad de no alcanzar el equilibrio</b> al año {cut_year}, y por complemento, un <b>{mc_p_success:.1f}% de probabilidad de éxito</b> (VPN > 0).<br>
+            • Al cambiar el corte temporal hacia 2027 y 2028, toda la curva S se desplaza hacia la derecha, reduciendo el riesgo de pérdida a casi cero.
+        </div>
+        """, unsafe_allow_html=True)
+
     # Gráfico de Tornado: Sensibilidad de Varianza
     st.markdown("##### Análisis de Sensibilidad Estocástica (Gráfico de Tornado)")
     
@@ -859,12 +890,41 @@ with tab2:
     )
     st.plotly_chart(fig_tornado, use_container_width=True)
 
+    top_var = df_tornado.iloc[-1]["Variable"]
+    top_corr = df_tornado.iloc[-1]["Correlacion"]
+    st.markdown(f"""
+    <div class="callout-box">
+        <b>💡 Análisis de Sensibilidad Estocástica (Jerarquía de Riesgo):</b><br>
+        • Este gráfico clasifica qué variables explican la mayor varianza del VPN mediante el <b>Coeficiente de Correlación de Spearman (rs)</b>.<br>
+        • <b>Mayor Palanca de Valor:</b> <b>{top_var} ({top_corr:+.3f})</b>. Una mayor monetización por usuario (ARPU) es el motor #1 de rentabilidad del proyecto.<br>
+        • <b>Mayores Factores de Riesgo Bajista:</b> <b>OPEX/MAU ({corr_results.get('OPEX/MAU', -0.18):+.3f})</b> y <b>Tasa Ke ({corr_results.get('Tasa Ke', -0.15):+.3f})</b>. Sobrecostos en servidores o encarecimiento del costo de capital reducen directamente la riqueza neta creada.
+    </div>
+    """, unsafe_allow_html=True)
+
 # =========================================================
 # TAB 3: PRONÓSTICO 2026-2028 & PUNTO DE EQUILIBRIO (VPN = 0)
 # =========================================================
 with tab3:
     st.markdown("#### 3. Pronóstico Técnico (2026–2028) & Cálculo del Payback Descontado")
     st.caption("Determinación matemática del momento exacto en que el flujo de caja descontado acumulado supera la inversión total (VPN = 0).")
+    
+    # Bloque de Definición Explícita de Escenarios
+    badge_A = "SELECCIONADO ACTUALMENTE" if preset_scenario == "Escenario A (Base 2Q26)" else "PRESET ALTERNATIVO"
+    badge_B = "SELECCIONADO ACTUALMENTE" if preset_scenario == "Escenario B (Cierre 4Q26)" else "PRESET ALTERNATIVO"
+    bg_tag_A = "#002A8F" if preset_scenario == "Escenario A (Base 2Q26)" else "#64748B"
+    bg_tag_B = "#742284" if preset_scenario == "Escenario B (Cierre 4Q26)" else "#64748B"
+    border_box_A = "border: 2px solid #002A8F; background-color: #F0F4FF;" if preset_scenario == "Escenario A (Base 2Q26)" else "border: 1px solid #CBD5E1; background-color: #FFFFFF;"
+    border_box_B = "border: 2px solid #742284; background-color: #FAF5FF;" if preset_scenario == "Escenario B (Cierre 4Q26)" else "border: 1px solid #CBD5E1; background-color: #FFFFFF;"
+
+    st.markdown("""<div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 16px; margin-bottom: 14px; font-weight: 800; font-size: 14px; color: #1D3557; display: flex; align-items: center; gap: 8px;"><span>📋</span> DEFINICIÓN EXPLÍCITA DE ESCENARIOS DE PROYECCIÓN (2026–2028):</div>""", unsafe_allow_html=True)
+
+    col_esc_a, col_esc_b = st.columns(2)
+
+    with col_esc_a:
+        st.markdown(f"""<div style="{border_box_A} border-radius: 8px; padding: 14px 18px; margin-bottom: 18px; min-height: 220px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><span style="font-weight: 800; color: #002A8F; font-size: 14px;">ESCENARIO A (Base 2Q26)</span><span style="background-color: {bg_tag_A}; color: #FFFFFF; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px;">{badge_A}</span></div><div style="font-size: 12px; color: #475569; margin-bottom: 10px; line-height: 1.5;"><b>Fundamento Técnico:</b> Supuesto base conservador tomado estrictamente del reporte oficial <i>2Q26 Corporate Presentation</i> del BCP / Credicorp a Junio 2026.</div><div style="font-size: 12px; color: #1E293B; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px;"><div>• <b>2026:</b> MAU 16.7M | Ingreso S/ 11.10 | OPEX S/ 6.00 → <b>FCN +S/ 785.5M</b> (VPN Acum -S/ 285.1M)</div><div>• <b>2027:</b> MAU 17.5M | Ingreso S/ 13.50 | OPEX S/ 6.20 → <b>FCN +S/ 1,311.4M</b> (VPN Acum +S/ 397.4M)</div><div>• <b>2028:</b> MAU 18.2M | Ingreso S/ 16.00 | OPEX S/ 6.40 → <b>FCN +S/ 1,888.2M</b> (VPN Acum +S/ 1,278.7M)</div></div><div style="font-size: 12px; font-weight: 700; color: #065F46; background-color: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; padding: 6px 10px;">🎯 Momento Exacto VPN = 0: MAYO DE 2027 (Mes 5.0 de 2027, t = 5.42 años)</div></div>""", unsafe_allow_html=True)
+
+    with col_esc_b:
+        st.markdown(f"""<div style="{border_box_B} border-radius: 8px; padding: 14px 18px; margin-bottom: 18px; min-height: 220px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><span style="font-weight: 800; color: #742284; font-size: 14px;">ESCENARIO B (Cierre 4Q26)</span><span style="background-color: {bg_tag_B}; color: #FFFFFF; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px;">{badge_B}</span></div><div style="font-size: 12px; color: #475569; margin-bottom: 10px; line-height: 1.5;"><b>Fundamento Técnico:</b> Supuesto dinámico acelerado que proyecta el ritmo de expansión transaccional del primer semestre hacia el cierre del año (4Q26).</div><div style="font-size: 12px; color: #1E293B; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px;"><div>• <b>2026:</b> MAU 17.5M | Ingreso S/ 12.60 | OPEX S/ 6.10 → <b>FCN +S/ 1,143.4M</b> (VPN Acum -S/ 77.4M)</div><div>• <b>2027:</b> MAU 18.3M | Ingreso S/ 15.00 | OPEX S/ 6.30 → <b>FCN +S/ 1,703.9M</b> (VPN Acum +S/ 809.3M)</div><div>• <b>2028:</b> MAU 19.0M | Ingreso S/ 17.50 | OPEX S/ 6.50 → <b>FCN +S/ 2,314.5M</b> (VPN Acum +S/ 1,889.6M)</div></div><div style="font-size: 12px; font-weight: 700; color: #065F46; background-color: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; padding: 6px 10px;">🎯 Momento Exacto VPN = 0: ENERO DE 2027 (Mes 1.0 de 2027, t = 5.09 años)</div></div>""", unsafe_allow_html=True)
     
     # Cuadros de Resumen del Punto de Equilibrio
     col_pb1, col_pb2, col_pb3, col_pb4 = st.columns(4)
@@ -984,6 +1044,15 @@ with tab3:
     )
     st.plotly_chart(fig_tray, use_container_width=True)
 
+    st.markdown(f"""
+    <div class="callout-box">
+        <b>💡 Análisis de la Trayectoria de Recuperación y Punto de Equilibrio:</b><br>
+        • <b>Línea Azul Sólida (Trayectoria Base {preset_scenario}):</b> Muestra la evolución del VPN descontado acumulado. Entre 2021 y 2023 el déficit se profundiza por la inversión inicial. En 2026 el saldo sigue en déficit (<b>S/ {all_vpn_cum[5]:,.0f}k</b>), pero en 2027 pasa decididamente a terreno positivo (<b>+S/ {all_vpn_cum[6]:,.0f}k</b>).<br>
+        • <b>Área Turquesa Sombreada (Banda P5 – P95):</b> Representa el <b>intervalo de confianza del 90%</b> generado por las 10,000 iteraciones de Monte Carlo. Incluso en el percentil adverso P5, la recuperación se consolida en 2027.<br>
+        • <b>Diamante Verde (Cruce VPN = 0):</b> Ubicado exactamente en <b>{det_month_name} de {int(det_year)} (Mes {det_month_val:.1f}, t = {t_breakeven_det:.2f} años)</b>. A partir de esa fecha, Yape ha amortizado el 100% de la inversión y costos de capital, generando valor económico puro para Credicorp.
+    </div>
+    """, unsafe_allow_html=True)
+
     # Tabla Consolidada 2021-2028
     st.markdown("##### Proyección Consolidada de Flujos de Caja (2021–2028)")
     df_consolidado = pd.DataFrame({
@@ -1027,6 +1096,20 @@ with tab3:
             yaxis=dict(title="Frecuencia", gridcolor="#E2E8F0")
         )
         st.plotly_chart(fig_bk, use_container_width=True)
+
+        bk_mean = np.nanmean(valid_bk) if len(valid_bk) > 0 else 5.44
+        pct_2027 = np.mean((mc_results['breakeven_year'] == 2027)) * 100.0
+        pct_2026 = np.mean((mc_results['breakeven_year'] == 2026)) * 100.0
+
+        st.markdown(f"""
+        <div class="callout-box" style="font-size:12px;">
+            <b>💡 Interpretación del Histograma de Payback:</b><br>
+            • Muestra en qué momento las {n_simulations:,} corridas de Monte Carlo alcanzaron VPN = 0.<br>
+            • <b>Año Modal: 2027 con el {pct_2027:.1f}% de las iteraciones</b> (el {pct_2026:.1f}% lo logra en 2026).<br>
+            • <b>Tiempo Promedio de Recuperación:</b> <b>{bk_mean:.2f} años</b> (~Mayo de 2027).<br>
+            • <b>Línea Verde:</b> Escenario determinístico base ({t_breakeven_det:.2f} años).
+        </div>
+        """, unsafe_allow_html=True)
         
     with col_sub2:
         st.markdown("##### Curva de Sensibilidad del VPN vs Tasa de Descuento (Ke)")
@@ -1132,11 +1215,15 @@ with tab3:
         st.plotly_chart(fig_ke_sens, use_container_width=True)
 
         st.markdown(f"""
-        <div class="callout-box">
-            <b>Límites Máximos de Tasa de Descuento (TIR) donde VPN = 0:</b><br>
-            • <b>Corte 2027:</b> El proyecto tolera que el costo de capital (Ke) suba hasta <b>{irr_c27*100:.2f}%</b> sin dejar de ser rentable (VPN ≥ 0).<br>
-            • <b>Corte 2028:</b> El proyecto tolera un Ke extremo de hasta <b>{irr_c28*100:.2f}%</b> manteniendo VPN ≥ 0.<br>
-            • <b>Corte 2026:</b> La tasa de equilibrio es solo <b>{irr_c26*100:.2f}%</b>, lo que explica por qué con Ke = {ke_mean*100:.1f}% aún presenta saldo negativo acumulado.
+        <div class="callout-box" style="font-size:12px;">
+            <b>💡 ¿Cómo interpretar la Curva de Sensibilidad a Ke y la TIR?:</b><br>
+            • Muestra cómo varía el VPN acumulado según la tasa de descuento exigida (evaluado de 4% a 32%).<br>
+            • <b>Línea Roja Punteada (Ke Actual = {ke_mean*100:.2f}%):</b> Se mueve en vivo con el slider de la barra lateral marcando el punto exacto evaluado en cada corte.<br>
+            • <b>Límites Máximos de Tasa de Descuento (TIR donde VPN = 0):</b><br>
+              - <b>Corte 2027:</b> El proyecto tolera que el costo de capital (Ke) suba hasta <b>{irr_c27*100:.2f}%</b> sin dejar de ser rentable (VPN ≥ 0).<br>
+              - <b>Corte 2028:</b> El proyecto tolera un Ke extremo de hasta <b>{irr_c28*100:.2f}%</b> manteniendo VPN ≥ 0.<br>
+              - <b>Corte 2026:</b> La tasa de equilibrio es solo <b>{irr_c26*100:.2f}%</b> (por eso a Ke = {ke_mean*100:.1f}% el saldo acumulado sigue siendo negativo).<br>
+              - <b>Corte 2025:</b> La TIR es negativa ({irr_hist*100:.2f}%), no existe tasa de interés positiva donde el VPN a 5 años sea mayor a cero.
         </div>
         """, unsafe_allow_html=True)
 
