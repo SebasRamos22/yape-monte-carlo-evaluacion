@@ -337,8 +337,8 @@ if len(cross_det_idx) > 0:
     det_year = 2021 + kd
     det_month_val = frac_det * 12.0
     meses_nombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre"]
-    m_idx = min(int(det_month_val), 11)
-    det_month_name = meses_nombres[m_idx]
+    m_num = max(1, min(12, int(np.floor(det_month_val)) if det_month_val >= 1 else 1))
+    det_month_name = meses_nombres[m_num - 1]
 else:
     t_breakeven_det = np.nan
     det_year = np.nan
@@ -1031,16 +1031,23 @@ with tab3:
     with col_sub2:
         st.markdown("##### Curva de Sensibilidad del VPN vs Tasa de Descuento (Ke)")
         
-        # Recálculo dinámico en rango del 6% al 22%
-        ke_range = np.linspace(0.06, 0.22, 80)
+        # Recálculo dinámico en rango del 4% al 32% para apreciar el cruce de VPN = 0 (TIR)
+        ke_range = np.linspace(0.04, 0.32, 100)
         vpn_vs_ke_2025 = [np.sum(HIST_FCN / ((1.0 + r) ** T_HIST)) for r in ke_range]
+        vpn_vs_ke_2026 = [np.sum(all_fcn[:6] / ((1.0 + r) ** t_all[:6])) for r in ke_range]
         vpn_vs_ke_2027 = [np.sum(all_fcn[:7] / ((1.0 + r) ** t_all[:7])) for r in ke_range]
         vpn_vs_ke_2028 = [np.sum(all_fcn / ((1.0 + r) ** t_all)) for r in ke_range]
         
         # Puntos evaluados en la tasa Ke exacta del slider
         cur_vpn_2025 = np.sum(HIST_FCN / ((1.0 + ke_mean) ** T_HIST))
+        cur_vpn_2026 = np.sum(all_fcn[:6] / ((1.0 + ke_mean) ** t_all[:6]))
         cur_vpn_2027 = np.sum(all_fcn[:7] / ((1.0 + ke_mean) ** t_all[:7]))
         cur_vpn_2028 = np.sum(all_fcn / ((1.0 + ke_mean) ** t_all))
+
+        # Cálculo de la TIR (tasa donde VPN = 0) para cada corte
+        irr_c26 = get_irr(all_fcn[:6])
+        irr_c27 = get_irr(all_fcn[:7])
+        irr_c28 = get_irr(all_fcn)
         
         fig_ke_sens = go.Figure()
         
@@ -1049,6 +1056,13 @@ with tab3:
             y=vpn_vs_ke_2025,
             name="Corte 2025 (Histórico)",
             line=dict(color="#E63946", width=2.5)
+        ))
+
+        fig_ke_sens.add_trace(go.Scatter(
+            x=ke_range * 100,
+            y=vpn_vs_ke_2026,
+            name="Corte 2026 (Transición)",
+            line=dict(color="#8B5CF6", width=2.5)
         ))
         
         fig_ke_sens.add_trace(go.Scatter(
@@ -1073,6 +1087,12 @@ with tab3:
             hovertemplate="Ke: %{x:.2f}%<br>VPN 2025: S/ %{y:,.0f}"
         ))
         fig_ke_sens.add_trace(go.Scatter(
+            x=[ke_mean * 100], y=[cur_vpn_2026],
+            mode="markers", marker=dict(size=9, color="#8B5CF6"),
+            showlegend=False, name="VPN 2026 actual",
+            hovertemplate="Ke: %{x:.2f}%<br>VPN 2026: S/ %{y:,.0f}"
+        ))
+        fig_ke_sens.add_trace(go.Scatter(
             x=[ke_mean * 100], y=[cur_vpn_2027],
             mode="markers", marker=dict(size=9, color="#F77F00"),
             showlegend=False, name="VPN 2027 actual",
@@ -1092,7 +1112,7 @@ with tab3:
         fig_ke_sens.add_vline(
             x=ke_mean * 100,
             line_width=2.5,
-            line_color="#E63946", # Rojo punteado de alto contraste
+            line_color="#E63946",
             line_dash="dash",
             annotation_text=f"<b>Ke Actual: {ke_mean*100:.2f}%</b>",
             annotation_position="top left",
@@ -1110,6 +1130,15 @@ with tab3:
             yaxis=dict(title="VPN (miles de S/)", gridcolor="#E2E8F0", zerolinecolor="#CBD5E1")
         )
         st.plotly_chart(fig_ke_sens, use_container_width=True)
+
+        st.markdown(f"""
+        <div class="callout-box">
+            <b>Límites Máximos de Tasa de Descuento (TIR) donde VPN = 0:</b><br>
+            • <b>Corte 2027:</b> El proyecto tolera que el costo de capital (Ke) suba hasta <b>{irr_c27*100:.2f}%</b> sin dejar de ser rentable (VPN ≥ 0).<br>
+            • <b>Corte 2028:</b> El proyecto tolera un Ke extremo de hasta <b>{irr_c28*100:.2f}%</b> manteniendo VPN ≥ 0.<br>
+            • <b>Corte 2026:</b> La tasa de equilibrio es solo <b>{irr_c26*100:.2f}%</b>, lo que explica por qué con Ke = {ke_mean*100:.1f}% aún presenta saldo negativo acumulado.
+        </div>
+        """, unsafe_allow_html=True)
 
 # =========================================================
 # TAB 4: REPORTE ESTADÍSTICO & DICTAMEN TÉCNICO
